@@ -1,13 +1,24 @@
 {
   "name": "main_module",
   "version": "1.0.0",
-  "description": "",
   "main": "main.js",
-  "dependencies": {},
+  "dependencies": {
+    "lodash": "^4.11.1",
+    "ws": "^1.1.0"
+  },
   "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ridel1e/main_module.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Ridel1e/main_module/issues"
+  },
+  "homepage": "https://github.com/Ridel1e/main_module#readme",
+  "description": ""
 }
