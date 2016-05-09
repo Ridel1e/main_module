@@ -1,53 +1,70 @@
 # lib dependencies
 { Server } = require('ws')
-ServerCommandsController = require('./utility/server.commands-controller')
+CommandParser = require('./utility/server.command-parser')
 DiffHandler = require('./utility/server.diff-handler')
-
-filesPath =
-  libDocumentationV1Path : '/class_main1.xml'
-  libDocumentationV2Path : '/class_main2.xml'
-  libSourceV1Path : 'some/path'
-  libSourceV2Path : 'some/path'
 
 # init server and server functions
 server = new Server({ port: 8080 });
 
-server.broadcast = (data, currentClient) ->
+server.broadcastDiffModules = (data) ->
   for client in server.clients
-    client.send(data) if client != currentClient
+    client.send(data) if client.type == 'diffFind'
+##
 
+## shit code chunk
 receivedDiffs = []
-interfaceModules = []
+diffModuleCount = 0
+waitingRequestInterface = undefined
+##
 
-# init server commands
-#serverCommandsController = new ServerCommandsController()
-#
-#serverCommandsController.addCommand('/getDiffs', server.broadcast)
-#serverCommandsController.addCommand('/diff', (message) ->
-#  receivedDiffs.push JSON.parse message
-#)
+serverEvents = (client) ->
+  console.log('module connected')
+  client.type = 'diffFind'
+  diffModuleCount++
+
+  client.on('message', (message) ->
+    console.log('received: %s', message)
+
+    event = JSON.parse(message)
+
+    # simple command handler. Need refactor
+    switch event.type
+      when 'moduleType'
+        client.type = event.parameters
+        console.log("new module type is #{client.type}")
+
+        diffModuleCount--
+
+      when 'addLib'
+        # need to create directory with files
+        createDirectory()
+
+      when 'pushDiff'
+        receivedDiffs.push(event.parameters)
+
+        if receivedDiffs.length == diffModuleCount
+          console.log('All diffs received')
+          outputDiffs = DiffHandler.handleDiffs(receivedDiffs)
+
+          waitingRequestInterface.send(JSON.stringify(outputDiffs))
+
+      when 'getDiff'
+        console.log('response pending...')
+        waitingRequestInterface = client
+
+        # need to add file uploading
+        filesPath =
+          libDocumentationV1Path : '/class_main1.xml'
+          libDocumentationV2Path : '/class_main2.xml'
+          libSourceV1Path : 'some/path'
+          libSourceV2Path : 'some/path'
 
 
-serverEvents = (ws) ->
-  console.log 'module connected'
+        server
+          .broadcastDiffModules(JSON.stringify(filesPath))
 
-  ws.on 'message', (message) ->
-    console.log 'received: %s', message
-
-    if message == '/getDiffs'
-      interfaceModules.push(ws)
-      server
-        .broadcast(JSON.stringify(filesPath), ws)
-    else
-      receivedDiffs.push JSON.parse message
-
-    if receivedDiffs.length == server.clients.length - 1
-      console.log 'all diff has been received'
-      outputDiffs = DiffHandler.handleDiffs(receivedDiffs)
-
-      for client in interfaceModules
-        client.send(JSON.stringify(outputDiffs))
-
-
+      else
+        console.log('undefined command')
+  )
 
 server.on('connection', serverEvents)
