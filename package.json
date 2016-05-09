@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "main": "main.js",
   "dependencies": {
+    "jsonfile": "^2.3.0",
     "lodash": "^4.11.1",
+    "mkdirp": "^0.5.1",
     "ws": "^1.1.0"
   },
   "devDependencies": {},

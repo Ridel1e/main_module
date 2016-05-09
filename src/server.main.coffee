@@ -1,7 +1,9 @@
 # lib dependencies
 { Server } = require('ws')
-CommandParser = require('./utility/server.command-parser')
+jsonfile = require('jsonfile')
+mkdirp = require('mkdirp')
 DiffHandler = require('./utility/server.diff-handler')
+
 
 # init server and server functions
 server = new Server({ port: 8080 });
@@ -9,6 +11,18 @@ server = new Server({ port: 8080 });
 server.broadcastDiffModules = (data) ->
   for client in server.clients
     client.send(data) if client.type == 'diffFind'
+
+saveLibDiff = (fileName, diff) ->
+
+  mkdirp("./file_storage/#{fileName}", (err) ->
+    console.log(err)
+  )
+
+  fileFullName = "./file_storage/#{fileName}/#{fileName}"
+
+  jsonfile.writeFile(fileFullName, diff, (err) ->
+    console.log(err)
+  )
 ##
 
 ## shit code chunk
@@ -46,22 +60,46 @@ serverEvents = (client) ->
           console.log('All diffs received')
           outputDiffs = DiffHandler.handleDiffs(receivedDiffs)
 
-          waitingRequestInterface.send(JSON.stringify(outputDiffs))
+          saveLibDiff(waitingRequestInterface.libName, outputDiffs)
+
+          waitingRequestInterface
+            .client
+            .send(JSON.stringify(outputDiffs))
 
       when 'getDiff'
         console.log('response pending...')
-        waitingRequestInterface = client
 
-        # need to add file uploading
-        filesPath =
-          libDocumentationV1Path : '/class_main1.xml'
-          libDocumentationV2Path : '/class_main2.xml'
-          libSourceV1Path : 'some/path'
-          libSourceV2Path : 'some/path'
+        # need refactor
+        splitedLibPath  = event
+        .parameters
+        .libV2Path
+        .split('/')
 
+        libName = splitedLibPath[splitedLibPath.length - 2]
 
-        server
-          .broadcastDiffModules(JSON.stringify(filesPath))
+        waitingRequestInterface =
+          client : client
+          libName : libName
+
+        fileFullName = "./file_storage/#{libName}/#{libName}"
+
+        jsonfile.readFile(fileFullName, (err, object) ->
+
+          if !object
+            # need to add file uploading (some shit code chunk again)
+            filesPath =
+              libDocumentationV1Path : event.parameters.libV1Path
+              libDocumentationV2Path : event.parameters.libV2Path
+              libSourceCodeV1Path : event.parameters.libV1Path + '/src'
+              libSourceCodeV2Path : event.parameters.libV2Path + '/src'
+
+            server
+            .broadcastDiffModules(JSON.stringify(filesPath))
+
+          else
+            console.log('repeat')
+            client.send(JSON.stringify(object))
+        )
 
       else
         console.log('undefined command')
