@@ -71,9 +71,9 @@ serverEvents = (client) ->
 
         # need refactor
         splitedLibPath  = event
-        .parameters
-        .libV2Path
-        .split('/')
+          .parameters
+          .libV2Path
+          .split('/')
 
         libName = splitedLibPath[splitedLibPath.length - 2]
 
@@ -88,13 +88,13 @@ serverEvents = (client) ->
           if !object
             # need to add file uploading (some shit code chunk again)
             filesPath =
-              libDocumentationV1Path : event.parameters.libV1Path
-              libDocumentationV2Path : event.parameters.libV2Path
+              libDocumentationV1Path : event.parameters.libV1Path + '/doc'
+              libDocumentationV2Path : event.parameters.libV2Path + '/doc'
               libSourceCodeV1Path : event.parameters.libV1Path + '/src'
               libSourceCodeV2Path : event.parameters.libV2Path + '/src'
 
             server
-            .broadcastDiffModules(JSON.stringify(filesPath))
+              .broadcastDiffModules (JSON.stringify(filesPath))
 
           else
             console.log('repeat')

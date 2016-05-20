@@ -83,8 +83,8 @@
             var filesPath;
             if (!object) {
               filesPath = {
-                libDocumentationV1Path: event.parameters.libV1Path,
-                libDocumentationV2Path: event.parameters.libV2Path,
+                libDocumentationV1Path: event.parameters.libV1Path + '/doc',
+                libDocumentationV2Path: event.parameters.libV2Path + '/doc',
                 libSourceCodeV1Path: event.parameters.libV1Path + '/src',
                 libSourceCodeV2Path: event.parameters.libV2Path + '/src'
               };
