@@ -19,7 +19,21 @@ readFile = (path) ->
         reject(err)
 
 writeDiff = (path) ->
-  
+######################################
+
+#saveLibDiff = (fileName, diff) ->
+#
+#  mkdirp("./file_storage/#{fileName}", (err) ->
+#    console.log(err)
+#  )
+#
+#  fileFullName = "./file_storage/#{fileName}/#{fileName}"
+#
+#  jsonfile.writeFile(fileFullName, diff, (err) ->
+#    console.log(err)
+#  )
+##
+
 
 module.exports.readDir = readDir
 module.exports.readFile = readFile

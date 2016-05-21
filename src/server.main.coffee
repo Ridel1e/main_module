@@ -2,6 +2,7 @@
 { Server } = require('ws')
 DiffHandler = require('./utility/server.diff-handler')
 StorageController = require('./utility/storage.controller')
+RandomKeyGenerator = require('./utility/random-key.generator')
 
 ## initializations
 server = new Server({ port: 8080 })
@@ -19,10 +20,18 @@ server.generateResponse = (status, data) ->
         message: data
       }
 
-server.broadcastDiffModules = (data) ->
-  for client in server.clients
-    if client.type in ['documentation', 'code', 'fat model code']
-      client.send(data)
+server.broadcastDiffModules = (key, data) ->
+  ## doc only for doc module in future
+  request =
+    key: key
+    libV1PathDoc: data.libV1Path + '/doc'
+    libV2PathDoc: data.libV2Path + '/doc'
+    libV1PathSrc: data.libV1Path + '/src'
+    libV2PathSrc: data.libV2Path + '/src'
+
+  for module in server.clients
+    if module.type in ['documentation', 'code', 'fat model code']
+      module.send(JSON.stringify(request))
 
 
 moduleTypes = ['interface', 'documentation', 'code', 'fat model code', 'source migrate', 'diff machine']
@@ -47,6 +56,9 @@ setModuleType = (module, data) ->
   if moduleTypes.indexOf(data) > -1
     module.type = data
 
+    if module.type in ['documentation', 'code', 'fat model code']
+      diffModulesCount++
+
     message = "now module type is #{data}"
     response = server
       .generateResponse('success', message, 'setType')
@@ -62,7 +74,11 @@ setModuleType = (module, data) ->
       .stringify(response))
 
 getDiffs = (module, data) ->
-  console.log('getDiffs')
+  key = RandomKeyGenerator.makeKey()
+  DiffHandler.addRequestedDiffList(key, module)
+
+  server.broadcastDiffModules(key, data)
+
   ##
 
 getDir = (module, data) ->
@@ -129,7 +145,7 @@ getFile = (module, data) ->
         module.send(JSON
           .stringify(response))
 
-
+## test-function :)
 getGuitarDiff = (module) ->
 
   StorageController
@@ -159,10 +175,21 @@ hasCommand = (command) ->
   return true if commands[command]
 
 pushDiff = (module, data) ->
-  ##
+  DiffHandler.pushDiff(data.key, data.diffList)
+  
+  if DiffHandler.getRequestedDiffListLength(data.key) == diffModulesCount
+    diffs = DiffHandler.getRequestedDiffList(data.key)
+    recipient = DiffHandler.getRequestedDiffListRecipient(data.key)
+
+    recipient
+      .send(JSON.stringify(diffs))
+    DiffHandler.removeRequestedDiffList(key)
+
+    #need to add diff save
+    
 
 pushModel = (module, data) ->
-  ##
+  ## diff machine function.
 
 ## call initCommand to initialize
 initCommands()
@@ -191,98 +218,3 @@ serverEvents = (client) ->
 server.on('connection', serverEvents)
     
 ## !server events
-
-######################################
-
-#saveLibDiff = (fileName, diff) ->
-#
-#  mkdirp("./file_storage/#{fileName}", (err) ->
-#    console.log(err)
-#  )
-#
-#  fileFullName = "./file_storage/#{fileName}/#{fileName}"
-#
-#  jsonfile.writeFile(fileFullName, diff, (err) ->
-#    console.log(err)
-#  )
-##
-
-### shit code chunk
-#receivedDiffs = []
-#waitingRequestInterface = undefined
-###
-#
-#serverEvents = (client) ->
-#  console.log('module connected')
-##  client.type = 'diffFind'
-##  diffModuleCount++
-#
-#  client.on('message', (message) ->
-#    console.log('received: %s', message)
-#
-#    event = JSON.parse(message)
-#
-#    # simple command handler. Need refactor
-#    switch event.type
-#      when 'moduleType'
-#        client.type = event.parameters
-#        console.log("new module type is #{client.type}")
-#
-#        diffModuleCount--
-#
-#      when 'addLib'
-#        # need to create directory with files
-#        createDirectory()
-#
-#      when 'pushDiff'
-#        receivedDiffs.push(event.parameters)
-#
-#        if receivedDiffs.length == diffModuleCount
-#          console.log('All diffs received')
-#          outputDiffs = DiffHandler.handleDiffs(receivedDiffs)
-#
-#          saveLibDiff(waitingRequestInterface.libName, outputDiffs)
-#
-#          waitingRequestInterface
-#            .client
-#            .send(JSON.stringify(outputDiffs))
-#
-#      when 'getDiff'
-#        console.log('response pending...')
-#
-#        # need refactor
-#        splitedLibPath  = event
-#          .parameters
-#          .libV2Path
-#          .split('/')
-#
-#        libName = splitedLibPath[splitedLibPath.length - 2]
-#
-#        waitingRequestInterface =
-#          client : client
-#          libName : libName
-#
-#        fileFullName = "./file_storage/#{libName}/#{libName}"
-#
-#        jsonfile.readFile(fileFullName, (err, object) ->
-#
-#          if !object
-#            # need to add file uploading (some shit code chunk again)
-#            filesPath =
-#              libDocumentationV1Path : event.parameters.libV1Path + '/doc'
-#              libDocumentationV2Path : event.parameters.libV2Path + '/doc'
-#              libSourceCodeV1Path : event.parameters.libV1Path + '/src'
-#              libSourceCodeV2Path : event.parameters.libV2Path + '/src'
-#
-#            server
-#              .broadcastDiffModules (JSON.stringify(filesPath))
-#
-#          else
-#            console.log('repeat')
-#            client.send(JSON.stringify(object))
-#        )
-#
-#      else
-#        console.log('undefined command')
-#  )
-#
