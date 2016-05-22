@@ -4,7 +4,7 @@ mkdirp = require('mkdirp')
 
 readDir = (path) ->
   return new Promise (resolve, reject) ->
-    fs.readdir path, 'utf8', (err, items) ->
+    fs.readdir path, (err, items) ->
       if items
         resolve(items)
       else
@@ -18,22 +18,33 @@ readFile = (path) ->
       else
         reject(err)
 
-writeDiff = (path) ->
-######################################
+saveDiffList = (diffList, libName) ->
+  path =
+    "../storage/#{libName}/#{libName}.json"
 
-#saveLibDiff = (fileName, diff) ->
-#
-#  mkdirp("./file_storage/#{fileName}", (err) ->
-#    console.log(err)
-#  )
-#
-#  fileFullName = "./file_storage/#{fileName}/#{fileName}"
-#
-#  jsonfile.writeFile(fileFullName, diff, (err) ->
-#    console.log(err)
-#  )
-##
+  console.log(path)
+  
+  return new Promise (resolve, reject) ->
+    jsonfile.writeFile path, diffList, (err) ->
+      if err
+        reject(err)
+      else
+        resolve()
+        
+getSavedDiffList = (libName) ->
+  path =
+    "../storage/#{libName}/#{libName}.json"
 
+  return new Promise (resolve, reject) ->
+    jsonfile.readFile path, (err, diffList) ->
+      if err
+        reject(err)
+      else
+        resolve(diffList)
+    
+  
 
+module.exports.getSavedDiffList = getSavedDiffList
 module.exports.readDir = readDir
 module.exports.readFile = readFile
+module.exports.saveDiffList = saveDiffList

@@ -11,7 +11,7 @@ server.generateResponse = (status, data) ->
     when 'success'
       return {
         status: status
-        type: arguments[0]
+        type: arguments[2]
         data: data
       }
     when 'error'
@@ -20,14 +20,19 @@ server.generateResponse = (status, data) ->
         message: data
       }
 
+server.getLibName = (data) ->
+  return data.libV1Path.split('/')[1]
+
 server.broadcastDiffModules = (key, data) ->
   ## doc only for doc module in future
   request =
-    key: key
-    libV1PathDoc: data.libV1Path + '/doc'
-    libV2PathDoc: data.libV2Path + '/doc'
-    libV1PathSrc: data.libV1Path + '/src'
-    libV2PathSrc: data.libV2Path + '/src'
+    type: 'request'
+    data:
+      key: key
+      libV1PathDoc: data.libV1Path + '/doc'
+      libV2PathDoc: data.libV2Path + '/doc'
+      libV1PathSrc: data.libV1Path + '/src'
+      libV2PathSrc: data.libV2Path + '/src'
 
   for module in server.clients
     if module.type in ['documentation', 'code', 'fat model code']
@@ -38,6 +43,10 @@ moduleTypes = ['interface', 'documentation', 'code', 'fat model code', 'source m
 diffModulesCount = 0
 commands = undefined
 
+## in current implementation server can have only one diff machine
+diffMachine = undefined 
+##
+
 # interface
 initCommands = () ->
   commands =
@@ -45,19 +54,23 @@ initCommands = () ->
     getDir: getDir
     getDirs: getDirs
     getFile: getFile
-    getGuitarDiff: getGuitarDiff
     hasCommand: hasCommand
     pushDiff: pushDiff
     pushModel: pushModel
     setModuleType: setModuleType
 
 ## command functions
+
+## function for set a type of module
 setModuleType = (module, data) ->
   if moduleTypes.indexOf(data) > -1
     module.type = data
 
     if module.type in ['documentation', 'code', 'fat model code']
       diffModulesCount++
+
+    if module.type == "diff machine"
+      diffMachine = module
 
     message = "now module type is #{data}"
     response = server
@@ -73,14 +86,28 @@ setModuleType = (module, data) ->
     module.send(JSON
       .stringify(response))
 
+# Function that get diffs request and broadcast diff generator modules
 getDiffs = (module, data) ->
-  key = RandomKeyGenerator.makeKey()
-  DiffHandler.addRequestedDiffList(key, module)
+  libName = server
+    .getLibName(data)
 
-  server.broadcastDiffModules(key, data)
+  StorageController
+    .getSavedDiffList(libName)
+    .then (diffList) ->
+      response = server
+        .generateResponse('success', diffList, 'getDiffs')
 
+      module.send(JSON
+        .stringify(response))
+
+    .catch () ->
+      key = RandomKeyGenerator.makeKey()
+      DiffHandler.addRequestedDiffList(key, module, libName)
+
+      server.broadcastDiffModules(key, data)
   ##
 
+# Function that returns dir content
 getDir = (module, data) ->
 
   StorageController
@@ -102,6 +129,7 @@ getDir = (module, data) ->
       module.send(JSON
         .stringify(response))
 
+# function that returns all libs folders
 getDirs = (module) ->
 
   StorageController
@@ -123,7 +151,7 @@ getDirs = (module) ->
       module.send(JSON
         .stringify(response))
 
-
+# function that returns file content
 getFile = (module, data) ->
 
   StorageController
@@ -145,51 +173,46 @@ getFile = (module, data) ->
         module.send(JSON
           .stringify(response))
 
-## test-function :)
-getGuitarDiff = (module) ->
-
-  StorageController
-    .readFile("../storage/guitar/guitar.json")
-    .then (data) ->
-      response = server
-        .generateResponse('success', data, 'file')
-
-      module.send(JSON
-        .stringify(response))
-
-    .catch (err) ->
-      console.log(err)
-
-      message = "can't read file"
-      response = server
-      .generateResponse('error', message)
-
-      module.send(JSON
-      .stringify(response))
-
-
-  module.send()
-  ##
-
 hasCommand = (command) ->
   return true if commands[command]
 
+# Function that get diff and push him to personal diff array,
+# if array will be full, server send diff list to recipient
 pushDiff = (module, data) ->
   DiffHandler.pushDiff(data.key, data.diffList)
-  
+
   if DiffHandler.getRequestedDiffListLength(data.key) == diffModulesCount
     diffs = DiffHandler.getRequestedDiffList(data.key)
     recipient = DiffHandler.getRequestedDiffListRecipient(data.key)
+    libName =  DiffHandler.getRequestedDiffListLibName(data.key)
 
-    recipient
-      .send(JSON.stringify(diffs))
-    DiffHandler.removeRequestedDiffList(key)
+    # need some refactor
+    sendPromise = new Promise (resolve, reject) ->
+      response = server
+        .generateResponse('success', diffs, 'getDiffs')
 
-    #need to add diff save
-    
+      recipient
+        .send(JSON.stringify(response))
+
+      resolve()
+
+    sendPromise
+      .then () ->
+        StorageController.saveDiffList(diffs, libName)
+
+      .then () ->
+        DiffHandler.removeRequestedDiffList(key)
+
+      .catch () ->
+        console.log(err)
 
 pushModel = (module, data) ->
-  ## diff machine function.
+  request =
+    type: 'request'
+    data: data
+
+  diffMachine
+    .send(JSON.stringify(request))
 
 ## call initCommand to initialize
 initCommands()

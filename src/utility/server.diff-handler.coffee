@@ -3,10 +3,11 @@ _ = require 'lodash'
 
 diffStorage = {}
 
-addRequestedDiffList = (key, recipient) ->
+addRequestedDiffList = (key, recipient, libName) ->
   diffStorage[key] =
     diffs: []
     recipient: recipient
+    libName : libName
 
   return
 
@@ -20,6 +21,9 @@ getRequestedDiffListLength = (key) ->
 
 getRequestedDiffList = (key) ->
   return handleDiffs(diffStorage[key].diffs)
+
+getRequestedDiffListLibName = (key) ->
+  return diffStorage[key].libName
 
 getRequestedDiffListRecipient = (key) ->
   return diffStorage[key].recipient
@@ -36,6 +40,7 @@ handleDiffs = (diffs) ->
 module.exports.addRequestedDiffList = addRequestedDiffList
 module.exports.getRequestedDiffList = getRequestedDiffList
 module.exports.getRequestedDiffListLength = getRequestedDiffListLength
+module.exports.getRequestedDiffListLibName = getRequestedDiffListLibName
 module.exports.getRequestedDiffListRecipient = getRequestedDiffListRecipient
 module.exports.removeRequestedDiffList = removeRequestedDiffList
 module.exports.pushDiff = pushDiff
